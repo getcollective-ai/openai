@@ -14,7 +14,7 @@ use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use utils::default;
+use collective_utils::default;
 
 /// Grab the `OpenAI` key from the environment
 ///

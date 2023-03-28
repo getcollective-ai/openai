@@ -1,7 +1,9 @@
 [package]
-name = "openai"
+name = "tokio-openai"
 version = "1.0.0"
 edition = "2021"
+description = "tokio support for OpenAI API"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"
@@ -13,7 +15,7 @@ tokio-stream = "0.1.12"
 tokio = { version = "1.25", features = ["full"] }
 derive_more = "0.99.17"
 utils = { git = "https://github.com/getcollective-ai/utils-rs", version = "1.0.0" }
-event-stream-processor = { git = "https://github.com/getcollective-ai/event-stream-processor", version = "1.0.0" }
+event-stream-processor = "1.0.0"
 
 [dev-dependencies]
 once_cell = "1.17"

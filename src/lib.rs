@@ -206,7 +206,7 @@ const fn empty<T>(input: &[T]) -> bool {
 }
 
 #[derive(Serialize, Debug)]
-pub struct ChatRequest<'a> {
+pub struct ChatRequest {
     pub model: ChatModel,
     pub messages: Vec<Msg>,
 
@@ -231,10 +231,53 @@ pub struct ChatRequest<'a> {
     pub n: usize,
 
     #[serde(skip_serializing_if = "empty")]
-    pub stop: &'a [&'a str],
+    pub stop: Vec<String>,
 }
 
-impl<'a> From<&'a str> for ChatRequest<'a> {
+impl ChatRequest {
+    pub fn model(self, model: ChatModel) -> Self {
+        Self { model, ..self }
+    }
+
+    pub fn temperature(self, temperature: f64) -> Self {
+        Self {
+            temperature,
+            ..self
+        }
+    }
+
+    pub fn message(self, message: Msg) -> Self {
+        Self {
+            messages: {
+                let mut messages = self.messages;
+                messages.push(message);
+                messages
+            },
+            ..self
+        }
+    }
+
+    pub fn top_p(self, top_p: f64) -> Self {
+        Self { top_p, ..self }
+    }
+
+    pub fn n(self, n: usize) -> Self {
+        Self { n, ..self }
+    }
+
+    pub fn stop(self, stop: impl Into<String>) -> Self {
+        Self {
+            stop: {
+                let mut s = self.stop;
+                s.push(stop.into());
+                s
+            },
+            ..self
+        }
+    }
+}
+
+impl<'a> From<&'a str> for ChatRequest {
     fn from(input: &'a str) -> Self {
         Self {
             messages: vec![Msg::user(input)],
@@ -243,14 +286,14 @@ impl<'a> From<&'a str> for ChatRequest<'a> {
     }
 }
 
-impl<'a> From<&'a String> for ChatRequest<'a> {
+impl<'a> From<&'a String> for ChatRequest {
     fn from(input: &'a String) -> Self {
         Self::from(input.as_str())
     }
 }
 
 // From for ChatRequest with &[ChatMessage]
-impl<'a> From<&'a [Msg]> for ChatRequest<'a> {
+impl<'a> From<&'a [Msg]> for ChatRequest {
     fn from(input: &'a [Msg]) -> Self {
         Self {
             messages: input.to_vec(),
@@ -260,7 +303,7 @@ impl<'a> From<&'a [Msg]> for ChatRequest<'a> {
 }
 
 // From for [ChatMessage; N]
-impl<'a, const N: usize> From<[Msg; N]> for ChatRequest<'a> {
+impl<const N: usize> From<[Msg; N]> for ChatRequest {
     fn from(input: [Msg; N]) -> Self {
         Self {
             messages: input.to_vec(),
@@ -269,7 +312,7 @@ impl<'a, const N: usize> From<[Msg; N]> for ChatRequest<'a> {
     }
 }
 
-impl Default for ChatRequest<'_> {
+impl Default for ChatRequest {
     fn default() -> Self {
         Self {
             model: ChatModel::default(),
@@ -277,7 +320,7 @@ impl Default for ChatRequest<'_> {
             temperature: 1.0,
             top_p: 1.0,
             n: 1,
-            stop: &[],
+            stop: Vec::new(),
         }
     }
 }
@@ -303,11 +346,6 @@ pub enum Completions {
     #[serde(rename = "text-davinci-003")]
     #[default]
     Davinci,
-
-    /// The Code Davinci model
-    #[serde(rename = "code-davinci-002")]
-    #[deprecated(note = "This model is deprecated, use Davinci instead")]
-    CodeDavinci,
 
     /// The Curie model
     #[serde(rename = "text-curie-001")]
@@ -383,7 +421,7 @@ impl Client {
 
     /// # Errors
     /// Returns `Err` if there is a network error communicating to `OpenAI`
-    pub async fn raw_chat(&self, req: ChatRequest<'_>) -> anyhow::Result<ChatResponse> {
+    pub async fn raw_chat(&self, req: ChatRequest) -> anyhow::Result<ChatResponse> {
         let response: String = self
             .request("https://api.openai.com/v1/chat/completions", req)
             .await
@@ -405,7 +443,7 @@ impl Client {
 
     /// # Errors
     /// Returns `Err` if there is a network error communicating to `OpenAI`
-    pub async fn chat(&self, req: impl Into<ChatRequest<'_>>) -> anyhow::Result<String> {
+    pub async fn chat(&self, req: impl Into<ChatRequest>) -> anyhow::Result<String> {
         let req = req.into();
         let response = self.raw_chat(req).await?;
         let choice = response
@@ -508,14 +546,14 @@ impl Client {
     /// Returns `Err` if there is a network error communicating to `OpenAI`
     pub async fn stream_chat(
         &self,
-        req: ChatRequest<'_>,
+        req: ChatRequest,
     ) -> anyhow::Result<impl Stream<Item = anyhow::Result<String>>> {
         #[derive(Serialize)]
-        struct ChatStreamRequest<'a> {
+        struct ChatStreamRequest {
             stream: bool,
 
             #[serde(flatten)]
-            req: ChatRequest<'a>,
+            req: ChatRequest,
         }
 
         #[derive(Serialize, Deserialize, Debug, Clone)]
